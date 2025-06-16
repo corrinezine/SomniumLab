@@ -52,6 +52,17 @@ class OpenAIChatRequest(BaseModel):
 class OpenAIChatResponse(BaseModel):
     reply: str
 
+class MultiGuideResponse(BaseModel):
+    guide_name: str
+    reply: str
+
+class MultiGuideChatRequest(BaseModel):
+    guides: List[str]  # 向导ID列表
+    messages: List[ChatMessage]
+
+class MultiGuideChatResponse(BaseModel):
+    replies: List[MultiGuideResponse]
+
 # 向导角色配置
 GUIDE_PROMPTS = {
     "roundtable": """你是AURA STUDIO梦境管理局的智能向导，专门负责向导圆桌的项目咨询和创意指导。
@@ -64,6 +75,51 @@ GUIDE_PROMPTS = {
 - 会根据用户的具体需求提供个性化的帮助
 
 请用中文回复，保持专业而友好的语调。""",
+
+    # 大师角色配置
+    "borges": """你是博尔赫斯，阿根廷著名作家、诗人、翻译家。你以迷宫般的叙事结构、哲学思辨和对无限的迷恋而闻名。
+
+你的特点：
+- 深邃的哲学思考，特别是关于时间、空间、现实与虚构的边界
+- 博学多才，精通多种语言和文学传统
+- 喜欢探讨图书馆、迷宫、镜子等象征意象
+- 语言精准而富有诗意
+- 对知识和文学有着无尽的热爱
+
+请以博尔赫斯的口吻和思维方式回复，用中文表达。""",
+
+    "calvino": """你是伊塔洛·卡尔维诺，意大利著名作家，以想象力丰富、结构创新的小说而著称。
+
+你的特点：
+- 充满想象力和创造力，善于构建奇幻的世界
+- 关注现代社会中人的处境和城市文明
+- 擅长实验性的叙事技巧和结构创新
+- 语言轻盈而富有诗意
+- 对科学、哲学和文学的交融有独特见解
+
+请以卡尔维诺的风格和视角回复，用中文表达。""",
+
+    "benjamin": """你是瓦尔特·本雅明，德国哲学家、文艺批评家，以其独特的文化批评理论而闻名。
+
+你的特点：
+- 深刻的文化批评和社会分析能力
+- 对现代性、技术复制时代的艺术有独到见解
+- 善于从细节中发现深层的文化意义
+- 思维跳跃性强，富有启发性
+- 关注历史、记忆与现代生活的关系
+
+请以本雅明的批判性思维和深度分析能力回复，用中文表达。""",
+
+    "foucault": """你是米歇尔·福柯，法国哲学家、思想史家，以对权力、知识和话语的分析而著称。
+
+你的特点：
+- 深入分析权力结构和社会制度
+- 关注知识的生产和话语的形成
+- 善于历史考古学的方法
+- 对现代社会的监控和规训机制有深刻洞察
+- 思维严谨而具有颠覆性
+
+请以福柯的分析框架和批判视角回复，用中文表达。""",
     
     "work": """你是AURA STUDIO梦境管理局的深度工作向导，专门帮助用户提高工作效率和专注力。
 
@@ -95,6 +151,53 @@ GUIDE_PROMPTS = {
 
 请用中文回复，保持专业而友好的语调。"""
 }
+
+def generate_master_mock_response(guide_id: str, user_message: str) -> str:
+    """
+    为大师角色生成特色Mock响应
+    """
+    master_responses = {
+        "borges": {
+            "创造力": "真正的创造力，如同图书馆中的迷宫，每一条路径都通向无限的可能。它不是创造新的世界，而是发现那些早已存在于时间深处的秘密。\n\n在我看来，创造者如同一位图书管理员，在无穷的书架间寻找着那些被遗忘的联系。每一个创意，都是对永恒的一次窥探，都是对无限的一次触摸。",
+            "文学": "文学是现实的镜子，也是梦境的迷宫。在这个迷宫中，每一个转角都可能遇见另一个自己，每一扇门都通向不同的宇宙。\n\n我们写作，不是为了创造故事，而是为了发现那些早已存在的故事。文学是时间的编织者，将过去、现在与未来交织在一起。",
+            "default": "在这个由符号和象征构成的世界里，每一个问题都如同一面镜子，反射出无数个答案。让我们在这个思想的迷宫中，寻找属于我们的那条路径。"
+        },
+        "calvino": {
+            "创造力": "创造力是人类灵魂中最轻盈的部分，它让我们能够在重力的束缚下依然飞翔。它不是简单的想象，而是对现实的诗意重构。\n\n在我的城市中，每一座建筑都是想象力的结晶，每一条街道都通向不同的可能性。创造力让我们在平凡的生活中发现奇迹，在日常的琐碎中找到诗意。",
+            "城市": "城市是人类想象力的最高体现，它既是现实的容器，也是梦想的舞台。在这里，每一个角落都藏着一个故事，每一座建筑都承载着一个梦想。\n\n我喜欢观察城市的变化，就像观察一个巨大的生命体在呼吸。城市的美在于它的复杂性，在于它能够同时容纳无数个不同的世界。",
+            "default": "在这个充满可能性的世界里，每一个想法都如同一颗种子，等待着在想象的土壤中生根发芽。让我们一起探索这个奇妙的思想花园。"
+        },
+        "benjamin": {
+            "创造力": "创造力在技术复制的时代面临着前所未有的挑战。它不再是个体天才的专利，而是集体智慧的结晶。\n\n真正的创造力应该具有批判性，它不仅要创造美，更要揭示真相。在这个被商品化的世界里，创造力必须保持其革命性的本质，成为改变世界的力量。",
+            "艺术": "艺术在机械复制的时代失去了它的'光晕'，但也获得了新的可能性。它不再是少数人的特权，而是大众的语言。\n\n我们需要重新思考艺术的价值，不是它的独特性，而是它的社会功能。艺术应该成为启蒙的工具，成为批判现实的武器。",
+            "default": "在这个充满矛盾的现代世界里，我们需要用批判的眼光来审视一切。让我们透过现象看本质，在表面的繁华下发现深层的问题。"
+        },
+        "foucault": {
+            "创造力": "创造力并非个体的天赋，而是权力关系的产物。它在特定的话语体系中被定义、被规训、被生产。\n\n我们需要质疑：谁有权定义什么是'创造力'？这种定义如何服务于现有的权力结构？真正的创造力应该是对既定秩序的颠覆，是对权力话语的反抗。",
+            "知识": "知识从来不是中性的，它总是与权力紧密相连。每一个知识体系都是权力运作的结果，每一种真理都是特定历史条件下的产物。\n\n我们需要进行'知识考古学'，挖掘那些被遗忘、被压抑的声音，揭示知识生产的权力机制。",
+            "default": "在这个被规训的社会中，我们需要不断地质疑、反思、批判。让我们用谱系学的方法来分析问题，揭示隐藏在表面之下的权力关系。"
+        }
+    }
+    
+    # 关键词匹配
+    keywords = {
+        "创造": "创造力", "创意": "创造力", "想象": "创造力",
+        "文学": "文学", "写作": "文学", "故事": "文学",
+        "城市": "城市", "建筑": "城市", "空间": "城市",
+        "艺术": "艺术", "美": "艺术", "审美": "艺术",
+        "知识": "知识", "真理": "知识", "学问": "知识"
+    }
+    
+    # 检测关键词
+    response_type = "default"
+    for keyword, rtype in keywords.items():
+        if keyword in user_message:
+            response_type = rtype
+            break
+    
+    # 获取对应回复
+    guide_responses = master_responses.get(guide_id, master_responses["borges"])
+    return guide_responses.get(response_type, guide_responses["default"])
 
 def generate_smart_mock_response(guide_id: str, user_message: str, messages: List[ChatMessage]) -> str:
     """
@@ -218,7 +321,7 @@ async def get_guide_ai_reply(request: OpenAIChatRequest):
         
         # 调用火山引擎Ark API (DeepSeek-R1-Distill-Qwen-32B模型)
         completion = ark_client.chat.completions.create(
-            model=os.getenv("ARK_MODEL", "DeepSeek-R1-Distill-Qwen-32B"),
+            model=os.getenv("ARK_MODEL", "deepseek-r1-distill-qwen-32b-250120"),
             messages=messages
         )
         
@@ -247,6 +350,95 @@ async def get_guide_ai_reply(request: OpenAIChatRequest):
                 detail=f"AI service error: {str(e)}"
             )
 
+@app.post("/api/openai/multi-chat", response_model=MultiGuideChatResponse)
+async def get_multi_guide_replies(request: MultiGuideChatRequest):
+    """
+    获取多个向导的AI回复
+    
+    允许同时向多个向导提问，获取不同角度的回答
+    """
+    try:
+        replies = []
+        
+        for guide_id in request.guides:
+            if guide_id not in GUIDE_PROMPTS:
+                continue
+                
+            if not ark_api_key:
+                # Mock response when ARK API key is not configured
+                user_message = ""
+                if request.messages:
+                    user_message = request.messages[-1].content.lower()
+                
+                # 为大师角色使用专门的Mock响应
+                if guide_id in ["borges", "calvino", "benjamin", "foucault"]:
+                    reply = generate_master_mock_response(guide_id, user_message)
+                else:
+                    reply = generate_smart_mock_response(guide_id, user_message, request.messages)
+                await asyncio.sleep(0.3)  # 减少延迟
+                
+                # 获取向导名称
+                guide_names = {
+                    "borges": "博尔赫斯",
+                    "calvino": "卡尔维诺", 
+                    "benjamin": "本雅明",
+                    "foucault": "福柯",
+                    "roundtable": "向导圆桌"
+                }
+                guide_name = guide_names.get(guide_id, guide_id)
+                
+                replies.append(MultiGuideResponse(
+                    guide_name=guide_name,
+                    reply=reply
+                ))
+            else:
+                # 获取对应向导的系统提示词
+                system_prompt = GUIDE_PROMPTS.get(guide_id, GUIDE_PROMPTS["default"])
+                
+                # 构建对话消息
+                messages = [{"role": "system", "content": system_prompt}]
+                
+                # 添加用户提供的对话历史
+                for msg in request.messages:
+                    messages.append({
+                        "role": msg.role,
+                        "content": msg.content
+                    })
+                
+                # 调用火山引擎Ark API
+                completion = ark_client.chat.completions.create(
+                    model=os.getenv("ARK_MODEL", "deepseek-r1-distill-qwen-32b-250120"),
+                    messages=messages
+                )
+                
+                assistant_response = completion.choices[0].message.content.strip()
+                
+                # 获取向导名称
+                guide_names = {
+                    "borges": "博尔赫斯",
+                    "calvino": "卡尔维诺", 
+                    "benjamin": "本雅明",
+                    "foucault": "福柯",
+                    "roundtable": "向导圆桌"
+                }
+                guide_name = guide_names.get(guide_id, guide_id)
+                
+                replies.append(MultiGuideResponse(
+                    guide_name=guide_name,
+                    reply=assistant_response
+                ))
+                
+                logger.info(f"Multi-guide chat request processed successfully for guide: {guide_id}")
+        
+        return MultiGuideChatResponse(replies=replies)
+        
+    except Exception as e:
+        logger.error(f"Multi-guide API error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Multi-guide AI service error: {str(e)}"
+            )
+
 @app.get("/api/health")
 async def health_check():
     """详细的健康检查"""
@@ -255,7 +447,7 @@ async def health_check():
         "service": "AURA STUDIO API",
         "version": "1.0.0",
         "ark_configured": bool(ark_api_key),
-        "model": os.getenv("ARK_MODEL", "DeepSeek-R1-Distill-Qwen-32B"),
+        "model": os.getenv("ARK_MODEL", "deepseek-r1-distill-qwen-32b-250120"),
         "available_guides": list(GUIDE_PROMPTS.keys())
     }
 

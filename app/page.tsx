@@ -3,9 +3,16 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Play, Pause, Volume2, VolumeX } from "lucide-react"
-import { callGuideChat, ChatMessage, APIError } from "@/lib/api"
+import { callGuideChat, callMultiGuideChat, ChatMessage, APIError, MultiGuideResponse } from "@/lib/api"
+import dynamic from 'next/dynamic'
 
-export default function HomePage() {
+// 动态导入组件以避免SSR问题
+const ClientOnlyContent = dynamic(() => Promise.resolve(MainContent), {
+  ssr: false,
+  loading: () => <div className="min-h-screen bg-purple-900 flex items-center justify-center text-white">加载中...</div>
+})
+
+function MainContent() {
   const [currentView, setCurrentView] = useState<"home" | "guide" | "work" | "break">("home")
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -15,7 +22,8 @@ export default function HomePage() {
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [isTimerRunning, setIsTimerRunning] = useState(false)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
-  const [showEasterEgg, setShowEasterEgg] = useState(false)
+  const [showGuideCard, setShowGuideCard] = useState<number | null>(null)
+  const [isCardFlipped, setIsCardFlipped] = useState(false)
 
   const toggleBGM = () => {
     if (!audio) {
@@ -51,24 +59,31 @@ export default function HomePage() {
   }, [audio])
 
   // 处理guide点击事件
-  const handleGuideClick = () => {
-    setShowEasterEgg(true)
+  const handleGuideClick = (guideIndex: number) => {
+    setShowGuideCard(guideIndex)
+    setIsCardFlipped(false) // 重置为背面
   }
 
-  // 关闭彩蛋弹窗
-  const closeEasterEgg = () => {
-    setShowEasterEgg(false)
+  // 关闭卡牌弹窗
+  const closeGuideCard = () => {
+    setShowGuideCard(null)
+    setIsCardFlipped(false)
+  }
+
+  // 翻转卡牌
+  const flipCard = () => {
+    setIsCardFlipped(!isCardFlipped)
   }
 
   // 监听ESC键关闭弹窗
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showEasterEgg) {
-        closeEasterEgg()
+      if (event.key === 'Escape' && showGuideCard !== null) {
+        closeGuideCard()
       }
     }
 
-    if (showEasterEgg) {
+    if (showGuideCard !== null) {
       document.addEventListener('keydown', handleEscKey)
       // 防止背景滚动
       document.body.style.overflow = 'hidden'
@@ -78,7 +93,7 @@ export default function HomePage() {
       document.removeEventListener('keydown', handleEscKey)
       document.body.style.overflow = 'unset'
     }
-  }, [showEasterEgg])
+  }, [showGuideCard])
 
   if (currentView === "guide") {
     return (
@@ -140,7 +155,7 @@ export default function HomePage() {
             className="w-[100px] h-auto object-contain"
           />
         </div>
-        <h1 className="text-2xl font-bold tracking-wider">AURA STUDIO</h1>
+        <h1 className="text-2xl font-bold tracking-wider">梦境管理局</h1>
         {/* Sound Control */}
         <div className="flex items-center gap-2">
           <Button 
@@ -161,68 +176,13 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col items-center justify-center px-6 mt-16">
-        {/* Function Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mb-16 justify-items-center">
-          {/* Deep Work */}
-          <div className="flex flex-col items-center gap-4">
-            <Button
-              onClick={() => setCurrentView("work")}
-              className="w-[100px] h-[100px] p-0 bg-transparent border-0 shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
-            >
-              <img 
-                src="/images/work.png" 
-                alt="深度工作" 
-                className="w-[100px] h-[100px] object-contain"
-              />
-            </Button>
-            <div className="text-center">
-              <div className="text-lg font-medium text-white">深度工作</div>
-              <div className="text-sm text-white/50">{completedPomodoros}次</div>
-            </div>
-          </div>
-
-          {/* Lunch Break */}
-          <div className="flex flex-col items-center gap-4">
-            <Button
-              onClick={() => setCurrentView("break")}
-              className="w-[100px] h-[100px] p-0 bg-transparent border-0 shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
-            >
-              <img 
-                src="/images/break.png" 
-                alt="午间休息" 
-                className="w-[100px] h-[100px] object-contain"
-              />
-            </Button>
-            <div className="text-center">
-              <div className="text-lg font-medium text-white">午间休息</div>
-              <div className="text-sm text-white/50">{completedBreaks}次</div>
-            </div>
-          </div>
-
-          {/* Guide Roundtable */}
-          <div className="flex flex-col items-center gap-4">
-            <Button
-              onClick={() => setCurrentView("guide")}
-              className="w-[100px] h-[100px] p-0 bg-transparent border-0 shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
-            >
-              <img 
-                src="/images/roundtable.png" 
-                alt="向导圆桌" 
-                className="w-[100px] h-[100px] object-contain"
-              />
-            </Button>
-            <div className="text-center">
-              <div className="text-lg font-medium text-white">向导圆桌</div>
-              <div className="text-sm text-white/50">0次</div>
-            </div>
-          </div>
-        </div>
-
+      <div className="flex flex-col items-center justify-center px-6" style={{ 
+        minHeight: 'calc(100vh - 120px - 300px)', 
+        marginTop: '60px',
+        marginBottom: '300px'
+      }}>
         {/* Dream Text */}
-        <div className="text-center text-white mb-16 px-6 max-w-md mx-auto">
-          
-          <br />
+        <div className="text-center text-white mb-12 px-6 max-w-md mx-auto">
           <p className="text-base leading-relaxed text-purple-200">
             当你抵达北纬39°54', 东经116°23'<br />
             梦境管理局的入口将显现于此
@@ -234,63 +194,204 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Bottom Illustration */}
-        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden">
-          {/* Bottom Background - Show upper half, hide lower half */}
-          <div className="relative w-full h-[200px]">
-            <img
-              src="/images/bottom-background.png"
-              alt="Bottom background"
-              className="w-full h-[400px] object-cover object-top absolute -bottom-[200px]"
-            />
+        {/* Function Buttons */}
+        <div className="flex justify-center items-center gap-16 md:gap-24">
+          {/* Deep Work */}
+          <div className="flex flex-col items-center gap-4">
+            <Button
+              onClick={() => setCurrentView("work")}
+              className="p-0 bg-transparent border-0 hover:bg-transparent shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
+            >
+              <img 
+                src="/images/work.png" 
+                alt="剧场魔法" 
+                className="w-[100px] h-[100px] object-contain"
+                style={{ width: '100px', height: '100px', maxWidth: '100px', maxHeight: '100px' }}
+              />
+            </Button>
+            <div className="text-center">
+              <div className="text-lg font-medium text-white">剧场魔法</div>
+            </div>
+          </div>
 
-            {/* Guide Characters positioned above the background */}
-            <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end px-8 pb-4 z-10">
-              {/* Guide 1 */}
-              <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110" onClick={handleGuideClick}>
-                <img src="/images/guide1.png" alt="Guide 1" className="w-[100px] h-auto object-contain" />
-              </div>
+          {/* Lunch Break */}
+          <div className="flex flex-col items-center gap-4">
+            <Button
+              onClick={() => setCurrentView("break")}
+              className="p-0 bg-transparent border-0 hover:bg-transparent shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
+            >
+              <img 
+                src="/images/break.png" 
+                alt="过往演出" 
+                className="w-[100px] h-[100px] object-contain"
+                style={{ width: '100px', height: '100px', maxWidth: '100px', maxHeight: '100px' }}
+              />
+            </Button>
+            <div className="text-center">
+              <div className="text-lg font-medium text-white">过往演出</div>
+            </div>
+          </div>
 
-              {/* Guide 2 */}
-              <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110" onClick={handleGuideClick}>
-                <img src="/images/guide2.png" alt="Guide 2" className="w-[100px] h-auto object-contain" />
-              </div>
-
-              {/* Guide 3 */}
-              <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110" onClick={handleGuideClick}>
-                <img src="/images/guide3.png" alt="Guide 3" className="w-[100px] h-auto object-contain" />
-              </div>
-
-              {/* Guide 4 */}
-              <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110" onClick={handleGuideClick}>
-                <img src="/images/guide4.png" alt="Guide 4" className="w-[100px] h-auto object-contain" />
-              </div>
+          {/* Guide Roundtable */}
+          <div className="flex flex-col items-center gap-4">
+            <Button
+              onClick={() => setCurrentView("guide")}
+              className="p-0 bg-transparent border-0 hover:bg-transparent shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
+            >
+              <img 
+                src="/images/roundtable.png" 
+                alt="工作手记" 
+                className="w-[100px] h-[100px] object-contain"
+                style={{ width: '100px', height: '100px', maxWidth: '100px', maxHeight: '100px' }}
+              />
+            </Button>
+            <div className="text-center">
+              <div className="text-lg font-medium text-white">工作手记</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Easter Egg Modal */}
-      {showEasterEgg && (
+      {/* Bottom Illustration */}
+      <div className="absolute bottom-0 left-0 right-0 w-full">
+        {/* Bottom Background - Show upper half, hide lower half */}
+        <div className="relative w-full h-[200px] overflow-hidden">
+          <img
+            src="/images/bottom-background.png"
+            alt="Bottom background"
+            className="w-full h-[400px] object-cover object-top absolute -bottom-[200px]"
+          />
+        </div>
+
+        {/* Guide Characters positioned above the background */}
+        <div className="absolute bottom-0 left-0 right-0 flex justify-between items-end px-8 pb-4 z-10">
+          {/* Guide 1 */}
+          <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110 hover:z-50" onClick={() => handleGuideClick(1)} style={{ zIndex: 10 }}>
+            <img src="/images/guide1.png" alt="Guide 1" className="w-[100px] h-auto object-contain" />
+          </div>
+
+          {/* Guide 2 */}
+          <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110 hover:z-50" onClick={() => handleGuideClick(2)} style={{ zIndex: 10 }}>
+            <img src="/images/guide2.png" alt="Guide 2" className="w-[100px] h-auto object-contain" />
+          </div>
+
+          {/* Guide 3 */}
+          <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110 hover:z-50" onClick={() => handleGuideClick(3)} style={{ zIndex: 10 }}>
+            <img src="/images/guide3.png" alt="Guide 3" className="w-[100px] h-auto object-contain" />
+          </div>
+
+          {/* Guide 4 */}
+          <div className="relative cursor-pointer transition-transform duration-300 hover:scale-110 hover:z-50" onClick={() => handleGuideClick(4)} style={{ zIndex: 10 }}>
+            <img src="/images/guide4.png" alt="Guide 4" className="w-[100px] h-auto object-contain" />
+          </div>
+        </div>
+      </div>
+
+      {/* Guide Card Modal */}
+      {showGuideCard !== null && (
         <div 
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 modal-overlay p-4"
-          onClick={closeEasterEgg}
+          onClick={closeGuideCard}
         >
           <div 
-            className="relative max-w-lg max-h-[70vh] modal-content"
+            className="relative flex flex-col items-center justify-center modal-content"
             onClick={(e) => e.stopPropagation()}
           >
-            <img 
-              src="/images/彩蛋.png" 
-              alt="彩蛋" 
-              className="w-full h-auto object-contain rounded-lg shadow-2xl"
-            />
+            {/* 关闭按钮 - 顶部居中 */}
             <button
-              onClick={closeEasterEgg}
-              className="absolute top-3 right-3 w-10 h-10 bg-white hover:bg-gray-100 rounded-full flex items-center justify-center text-gray-600 text-2xl font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-110"
+              onClick={(e) => {
+                e.stopPropagation()
+                closeGuideCard()
+              }}
+              className="mb-4 w-[25px] h-[25px] hover:scale-110 transition-all duration-200 z-20"
             >
-              ×
+              <img 
+                src="/images/button-close.svg" 
+                alt="关闭" 
+                className="w-full h-full object-contain"
+              />
             </button>
+            
+            {/* 翻转卡牌容器 - 响应式尺寸 */}
+            <div 
+              className="relative cursor-pointer w-[70vw] md:w-[50vw] lg:w-[40vw] xl:w-[35vw] max-w-md"
+              style={{ perspective: "1200px" }}
+              onClick={(e) => {
+                e.stopPropagation()
+                flipCard()
+              }}
+            >
+              {/* 3D翻转卡牌容器 */}
+              <div
+                className="relative w-full h-auto transition-transform duration-[850ms] ease-out hover:scale-105"
+                style={{
+                  transformStyle: "preserve-3d",
+                  transform: `rotateY(${isCardFlipped ? 180 : 0}deg)`,
+                }}
+              >
+                {/* 卡牌背面 (初始显示) */}
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    transform: "rotateY(0deg)",
+                  }}
+                >
+                  <img 
+                    src={`/images/card${showGuideCard}-back.png`}
+                    alt={`Guide ${showGuideCard} 卡牌背面`} 
+                    className="w-full h-auto object-contain rounded-lg shadow-2xl"
+                  />
+                </div>
+                
+                {/* 卡牌正面 (翻转后显示) */}
+                <div
+                  className="absolute top-0 left-0 w-full h-full"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)",
+                  }}
+                >
+                  <img 
+                    src={`/images/card${showGuideCard}-front.png`}
+                    alt={`Guide ${showGuideCard} 卡牌正面`} 
+                    className="w-full h-auto object-contain rounded-lg shadow-2xl"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* 提示文字和操作按钮 */}
+            {!isCardFlipped ? (
+              <div className="mt-4 text-white/70 text-sm text-center">
+                点击卡牌翻转
+              </div>
+            ) : (
+              <div className="mt-6 flex gap-4 justify-center">
+                {/* 保存至相册 - 主按钮 */}
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    // TODO: 实现保存功能
+                    console.log('保存至相册')
+                  }}
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-2 rounded-lg font-medium shadow-lg transition-all duration-300 hover:scale-105"
+                >
+                  保存至相册
+                </Button>
+                
+                {/* 回到大厅 - 次要按钮 */}
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeGuideCard()
+                  }}
+                  className="bg-white/20 backdrop-blur-sm border border-white/30 hover:bg-white/30 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 hover:scale-105"
+                >
+                  回到大厅
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -312,22 +413,233 @@ function GuideRoundtable({
   toggleMute: () => void
 }) {
   const [messages, setMessages] = useState([
-    { id: 1, text: "欢迎来到向导圆桌！我是你的智能向导，专门负责项目咨询和创意指导。请告诉我你需要什么帮助？", isUser: false, time: "Wed 8:21 AM" },
+    { id: 1, text: "欢迎来到向导圆桌！我是你的智能向导，专门负责项目咨询和创意指导。请告诉我你需要什么帮助？", isUser: false, time: "" },
   ])
   const [inputText, setInputText] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentTime, setCurrentTime] = useState("")
 
-  const sendMessage = async () => {
-    if (inputText.trim() && !isLoading) {
-      const userMessage = inputText.trim()
-      const currentTime = new Date().toLocaleTimeString('en-US', { 
+  // 在客户端初始化时间，避免水合错误
+  useEffect(() => {
+    const updateTime = () => {
+      const time = new Date().toLocaleTimeString('en-US', { 
         weekday: 'short', 
         hour: 'numeric', 
         minute: '2-digit',
         hour12: true 
       })
-      const newUserMessage = { id: Date.now(), text: userMessage, isUser: true, time: currentTime }
+      setCurrentTime(time)
+      
+      // 更新初始消息的时间
+      setMessages(prev => prev.map(msg => 
+        msg.id === 1 ? { ...msg, time } : msg
+      ))
+    }
+    
+    updateTime()
+    // 每分钟更新一次时间
+    const interval = setInterval(updateTime, 60000)
+    
+    return () => clearInterval(interval)
+  }, [])
+
+  const sendMultiGuideQuestion = async (question: string, guides: string[]) => {
+    if (isLoading) return
+    
+    const messageTime = new Date().toLocaleTimeString('en-US', { 
+      weekday: 'short', 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+    const newUserMessage = { id: Date.now(), text: question, isUser: true, time: messageTime }
+    
+    // 添加用户消息
+    setMessages(prev => [...prev, newUserMessage])
+    setIsLoading(true)
+    setError(null)
+
+    // 添加"正在思考"的临时消息
+    const thinkingMessage = { id: Date.now() + 1, text: "大师们正在思考中...", isUser: false, time: messageTime }
+    setMessages(prev => [...prev, thinkingMessage])
+
+    try {
+      // 准备API请求数据
+      const chatHistory: ChatMessage[] = messages
+        .filter(msg => msg.text !== "正在思考中..." && msg.text !== "大师们正在思考中...")
+        .map(msg => ({
+          role: msg.isUser ? 'user' as const : 'assistant' as const,
+          content: msg.text
+        }))
+      
+      // 添加当前用户消息
+      chatHistory.push({
+        role: 'user',
+        content: question
+      })
+
+      // 调用多向导API
+      const response = await callMultiGuideChat({
+        guides: guides,
+        messages: chatHistory
+      })
+
+      // 移除"正在思考"消息，添加多个AI回复
+      setMessages(prev => {
+        const withoutThinking = prev.filter(msg => msg.text !== "大师们正在思考中...")
+        const replyTime = new Date().toLocaleTimeString('en-US', { 
+          weekday: 'short', 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        })
+        
+        const newMessages = [...withoutThinking]
+        
+        // 为每个向导添加回复消息
+        response.replies.forEach((reply, index) => {
+          newMessages.push({
+            id: Date.now() + 2 + index,
+            text: `**${reply.guide_name}：**\n\n${reply.reply}`,
+            isUser: false,
+            time: replyTime
+          })
+        })
+        
+        return newMessages
+      })
+
+    } catch (error) {
+      console.error('多向导API调用失败:', error)
+      
+      // 移除"正在思考"消息
+      setMessages(prev => prev.filter(msg => msg.text !== "大师们正在思考中..."))
+      
+      // 设置错误信息
+      if (error instanceof APIError) {
+        setError(error.message)
+      } else {
+        setError('发送消息失败，请稍后重试')
+      }
+      
+      // 添加错误提示消息
+      const errorTime = new Date().toLocaleTimeString('en-US', { 
+        weekday: 'short', 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+      setMessages(prev => [...prev, {
+        id: Date.now() + 2,
+        text: "抱歉，大师们暂时无法回复。请稍后重试。",
+        isUser: false,
+        time: errorTime
+      }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const sendPresetQuestion = async (question: string) => {
+    if (isLoading) return
+    
+    const messageTime = new Date().toLocaleTimeString('en-US', { 
+      weekday: 'short', 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+    const newUserMessage = { id: Date.now(), text: question, isUser: true, time: messageTime }
+    
+    // 添加用户消息
+    setMessages(prev => [...prev, newUserMessage])
+    setIsLoading(true)
+    setError(null)
+
+    // 添加"正在思考"的临时消息
+    const thinkingMessage = { id: Date.now() + 1, text: "正在思考中...", isUser: false, time: messageTime }
+    setMessages(prev => [...prev, thinkingMessage])
+
+    try {
+      // 准备API请求数据
+      const chatHistory: ChatMessage[] = messages
+        .filter(msg => msg.text !== "正在思考中...")
+        .map(msg => ({
+          role: msg.isUser ? 'user' as const : 'assistant' as const,
+          content: msg.text
+        }))
+      
+      // 添加当前用户消息
+      chatHistory.push({
+        role: 'user',
+        content: question
+      })
+
+      // 调用API
+      const response = await callGuideChat({
+        guide_id: 'roundtable',
+        messages: chatHistory
+      })
+
+      // 移除"正在思考"消息，添加AI回复
+      setMessages(prev => {
+        const withoutThinking = prev.filter(msg => msg.text !== "正在思考中...")
+        const replyTime = new Date().toLocaleTimeString('en-US', { 
+          weekday: 'short', 
+          hour: 'numeric', 
+          minute: '2-digit',
+          hour12: true 
+        })
+        return [...withoutThinking, {
+          id: Date.now() + 2,
+          text: response.reply,
+          isUser: false,
+          time: replyTime
+        }]
+      })
+
+    } catch (error) {
+      console.error('API调用失败:', error)
+      
+      // 移除"正在思考"消息
+      setMessages(prev => prev.filter(msg => msg.text !== "正在思考中..."))
+      
+      // 设置错误信息
+      if (error instanceof APIError) {
+        setError(error.message)
+      } else {
+        setError('发送消息失败，请稍后重试')
+      }
+      
+      // 添加错误提示消息
+      const errorTime = new Date().toLocaleTimeString('en-US', { 
+        weekday: 'short', 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+      setMessages(prev => [...prev, {
+        id: Date.now() + 2,
+        text: "抱歉，我暂时无法回复。请稍后重试。",
+        isUser: false,
+        time: errorTime
+      }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const sendMessage = async () => {
+    if (inputText.trim() && !isLoading) {
+      const userMessage = inputText.trim()
+      const messageTime = new Date().toLocaleTimeString('en-US', { 
+        weekday: 'short', 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      })
+      const newUserMessage = { id: Date.now(), text: userMessage, isUser: true, time: messageTime }
       
       // 添加用户消息
       setMessages(prev => [...prev, newUserMessage])
@@ -336,7 +648,7 @@ function GuideRoundtable({
       setError(null)
 
       // 添加"正在思考"的临时消息
-      const thinkingMessage = { id: Date.now() + 1, text: "正在思考中...", isUser: false, time: currentTime }
+      const thinkingMessage = { id: Date.now() + 1, text: "正在思考中...", isUser: false, time: messageTime }
       setMessages(prev => [...prev, thinkingMessage])
 
       try {
@@ -425,7 +737,7 @@ function GuideRoundtable({
         <Button
           onClick={onBack}
           variant="ghost"
-          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:scale-105 transition-all duration-300"
+          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:bg-transparent hover:scale-110 transition-all duration-300"
         >
           <img 
             src="/images/logo.png" 
@@ -454,10 +766,10 @@ function GuideRoundtable({
       </div>
 
       {/* Time */}
-      <div className="text-center text-purple-300 mb-8">Wed 8:21 AM</div>
+      <div className="text-center text-purple-300 mb-8">{currentTime}</div>
 
       {/* Messages */}
-      <div className="flex-1 px-6 space-y-4 mb-24">
+      <div className="flex-1 px-6 md:px-12 lg:px-20 space-y-4 mb-6">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -467,11 +779,19 @@ function GuideRoundtable({
               <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex-shrink-0"></div>
             )}
             <div
-              className={`max-w-xs px-4 py-3 rounded-2xl ${
-                message.isUser ? "bg-purple-600 text-white" : "bg-white/10 backdrop-blur-sm text-white"
+              className={`max-w-xs md:max-w-[60%] px-4 py-3 rounded-2xl ${
+                message.isUser ? "text-white" : "bg-white/10 backdrop-blur-sm text-white"
               }`}
+              style={message.isUser ? { backgroundColor: '#3D2E94' } : {}}
             >
-              {message.text}
+              <div className="whitespace-pre-wrap">
+                {message.text.split(/(\*\*.*?\*\*)/).map((part, index) => {
+                  if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={index}>{part.slice(2, -2)}</strong>
+                  }
+                  return part
+                })}
+              </div>
             </div>
             {message.isUser && (
               <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex-shrink-0"></div>
@@ -480,8 +800,41 @@ function GuideRoundtable({
         ))}
       </div>
 
+      {/* Preset Questions */}
+      {messages.length === 1 && (
+        <div className="px-6 md:px-12 lg:px-20 mb-6">
+          <div className="text-center text-purple-300 text-sm mb-4">💡 试试这些有趣的问题</div>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Button
+              onClick={() => sendPresetQuestion("博尔赫斯和卡尔维诺相遇会聊什么？")}
+              className="bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20 px-4 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105"
+            >
+              📚 博尔赫斯和卡尔维诺相遇会聊什么？
+            </Button>
+            <Button
+              onClick={() => sendPresetQuestion("如何设计一个梦境记录应用？")}
+              className="bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20 px-4 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105"
+            >
+              💭 如何设计一个梦境记录应用？
+            </Button>
+            <Button
+              onClick={() => sendPresetQuestion("创意工作室需要什么样的氛围？")}
+              className="bg-white/10 backdrop-blur-sm text-white border border-white/20 hover:bg-white/20 px-4 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105"
+            >
+              🎨 创意工作室需要什么样的氛围？
+            </Button>
+            <Button
+              onClick={() => sendMultiGuideQuestion("什么是真正的创造力？", ["borges", "calvino", "benjamin", "foucault"])}
+              className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm text-white border border-purple-300/30 hover:from-purple-500/30 hover:to-pink-500/30 px-4 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105"
+            >
+              ✨ 大师圆桌：什么是真正的创造力？
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
-      <div className="fixed bottom-6 left-6 right-6 flex gap-3">
+      <div className="fixed bottom-6 left-6 right-6 md:left-12 md:right-12 lg:left-20 lg:right-20 flex">
         <div className="flex-1 relative">
           <input
             type="text"
@@ -494,11 +847,14 @@ function GuideRoundtable({
         </div>
         <Button
           onClick={sendMessage}
-          className="w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center"
+          className="h-[50px] w-[50px] p-0 bg-transparent border-0 hover:bg-transparent hover:scale-110 transition-all duration-300"
+          style={{
+            backgroundImage: "url(/images/button-send.svg)",
+            backgroundSize: "50px 50px",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center"
+          }}
         >
-          <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
-          </div>
         </Button>
       </div>
     </div>
@@ -554,7 +910,7 @@ function DeepWork({
         <Button
           onClick={onBack}
           variant="ghost"
-          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:scale-105 transition-all duration-300"
+          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:bg-transparent hover:scale-110 transition-all duration-300"
         >
           <img 
             src="/images/logo.png" 
@@ -683,7 +1039,7 @@ function BreakTime({
         <Button
           onClick={onBack}
           variant="ghost"
-          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:scale-105 transition-all duration-300"
+          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:bg-transparent hover:scale-110 transition-all duration-300"
         >
           <img 
             src="/images/logo.png" 
@@ -761,4 +1117,8 @@ function BreakTime({
       </div>
     </div>
   )
+}
+
+export default function HomePage() {
+  return <ClientOnlyContent />
 }
