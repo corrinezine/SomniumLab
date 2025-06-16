@@ -12,6 +12,12 @@ const ClientOnlyContent = dynamic(() => Promise.resolve(MainContent), {
   loading: () => <div className="min-h-screen bg-purple-900 flex items-center justify-center text-white">加载中...</div>
 })
 
+// 动态导入二维码扫描组件
+const QRScannerComponent = dynamic(() => import('@/components/qr-scanner'), {
+  ssr: false,
+  loading: () => <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"><div className="text-white">启动相机中...</div></div>
+})
+
 function MainContent() {
   const [currentView, setCurrentView] = useState<"home" | "guide" | "work" | "break">("home")
   const [isPlaying, setIsPlaying] = useState(false)
@@ -24,6 +30,27 @@ function MainContent() {
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
   const [showGuideCard, setShowGuideCard] = useState<number | null>(null)
   const [isCardFlipped, setIsCardFlipped] = useState(false)
+  const [showQRScanner, setShowQRScanner] = useState(false)
+
+  // 检查URL参数，如果有card参数则自动打开对应卡牌
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const cardParam = urlParams.get('card')
+      
+      if (cardParam) {
+        const cardNumber = parseInt(cardParam)
+        if (cardNumber >= 1 && cardNumber <= 4) {
+          setShowGuideCard(cardNumber)
+          setIsCardFlipped(false)
+          
+          // 清除URL参数，避免刷新时重复打开
+          const newUrl = window.location.pathname
+          window.history.replaceState({}, '', newUrl)
+        }
+      }
+    }
+  }, [])
 
   const toggleBGM = () => {
     if (!audio) {
@@ -75,15 +102,53 @@ function MainContent() {
     setIsCardFlipped(!isCardFlipped)
   }
 
+  // 处理二维码扫描成功
+  const handleQRScanSuccess = (cardParam: string) => {
+    const cardNumber = parseInt(cardParam)
+    if (cardNumber >= 1 && cardNumber <= 4) {
+      setShowQRScanner(false)
+      setShowGuideCard(cardNumber)
+      setIsCardFlipped(false)
+      
+      // 恢复音乐播放（如果之前在播放）
+      if (audio && isPlaying) {
+        audio.play().catch(err => console.log("恢复音乐播放失败:", err))
+      }
+    }
+  }
+
+  // 关闭二维码扫描器
+  const closeQRScanner = () => {
+    setShowQRScanner(false)
+    
+    // 恢复音乐播放（如果之前在播放）
+    if (audio && isPlaying) {
+      audio.play().catch(err => console.log("恢复音乐播放失败:", err))
+    }
+  }
+
+  // 打开二维码扫描器
+  const openQRScanner = () => {
+    // 暂停音乐播放以避免冲突
+    if (audio && isPlaying) {
+      audio.pause()
+    }
+    setShowQRScanner(true)
+  }
+
   // 监听ESC键关闭弹窗
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showGuideCard !== null) {
-        closeGuideCard()
+      if (event.key === 'Escape') {
+        if (showQRScanner) {
+          closeQRScanner()
+        } else if (showGuideCard !== null) {
+          closeGuideCard()
+        }
       }
     }
 
-    if (showGuideCard !== null) {
+    if (showGuideCard !== null || showQRScanner) {
       document.addEventListener('keydown', handleEscKey)
       // 防止背景滚动
       document.body.style.overflow = 'hidden'
@@ -93,7 +158,7 @@ function MainContent() {
       document.removeEventListener('keydown', handleEscKey)
       document.body.style.overflow = 'unset'
     }
-  }, [showGuideCard])
+  }, [showGuideCard, showQRScanner])
 
   if (currentView === "guide") {
     return (
@@ -155,7 +220,22 @@ function MainContent() {
             className="w-[100px] h-auto object-contain"
           />
         </div>
-        <h1 className="text-2xl font-bold tracking-wider">梦境管理局</h1>
+        
+        {/* 中间区域：标题和扫一扫按钮 */}
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-wider">梦境管理局</h1>
+          <Button
+            onClick={openQRScanner}
+            className={`backdrop-blur-sm border border-white/30 px-4 py-1 rounded-full text-sm transition-all duration-300 hover:scale-105 ${
+              showQRScanner 
+                ? 'bg-green-500/30 hover:bg-green-500/40 text-white animate-pulse' 
+                : 'bg-white/20 hover:bg-white/30 text-white'
+            }`}
+          >
+            {showQRScanner ? '📱 扫描中...' : '📱 扫一扫'}
+          </Button>
+        </div>
+        
         {/* Sound Control */}
         <div className="flex items-center gap-2">
           <Button 
@@ -394,6 +474,14 @@ function MainContent() {
             )}
           </div>
         </div>
+      )}
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScannerComponent
+          onScanSuccess={handleQRScanSuccess}
+          onClose={closeQRScanner}
+        />
       )}
     </div>
   )
