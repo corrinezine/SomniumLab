@@ -21,11 +21,11 @@ const QRScannerComponent = dynamic(() => import('@/components/qr-scanner'), {
 
 function MainContent() {
   const router = useRouter()
-  const [currentView, setCurrentView] = useState<"home" | "guide" | "work" | "break">("home")
+  const [currentView, setCurrentView] = useState<"home" | "guide" | "work">("home")
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [completedPomodoros, setCompletedPomodoros] = useState(0)
-  const [completedBreaks, setCompletedBreaks] = useState(0)
+
   const [timerMinutes, setTimerMinutes] = useState(60)
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [isTimerRunning, setIsTimerRunning] = useState(false)
@@ -188,19 +188,7 @@ function MainContent() {
     )
   }
 
-  if (currentView === "break") {
-    return (
-      <BreakTime
-        onBack={() => setCurrentView("home")}
-        isPlaying={isPlaying}
-        toggleBGM={toggleBGM}
-        isMuted={isMuted}
-        toggleMute={toggleMute}
-        completedBreaks={completedBreaks}
-        setCompletedBreaks={setCompletedBreaks}
-      />
-    )
-  }
+
 
   return (
     <div
@@ -299,7 +287,7 @@ function MainContent() {
           {/* Lunch Break */}
           <div className="flex flex-col items-center gap-4">
             <Button
-              onClick={() => setCurrentView("break")}
+              onClick={() => router.push('/break')}
               className="p-0 bg-transparent border-0 hover:bg-transparent shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
             >
               <img 
@@ -1081,134 +1069,7 @@ function DeepWork({
   )
 }
 
-function BreakTime({
-  onBack,
-  isPlaying,
-  toggleBGM,
-  isMuted,
-  toggleMute,
-  completedBreaks,
-  setCompletedBreaks,
-}: {
-  onBack: () => void
-  isPlaying: boolean
-  toggleBGM: () => void
-  isMuted: boolean
-  toggleMute: () => void
-  completedBreaks: number
-  setCompletedBreaks: (count: number) => void
-}) {
-  const [minutes, setMinutes] = useState(15)
-  const [seconds, setSeconds] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
 
-  const startTimer = () => {
-    setIsRunning(true)
-    // Timer logic would go here
-  }
-
-  const completeBreak = () => {
-    setCompletedBreaks(completedBreaks + 1)
-    setMinutes(15)
-    setSeconds(0)
-    setIsRunning(false)
-  }
-
-  return (
-    <div
-      className="min-h-screen text-white flex flex-col"
-      style={{
-        backgroundImage: "url(/images/background.png)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      {/* Header */}
-      <div className="flex justify-between items-center p-6">
-        {/* Logo - clickable to go back */}
-        <Button
-          onClick={onBack}
-          variant="ghost"
-          className="w-[100px] h-auto p-0 bg-transparent border-0 hover:bg-transparent hover:scale-110 transition-all duration-300"
-        >
-          <img 
-            src="/images/logo.png" 
-            alt="AURA STUDIO Logo" 
-            className="w-[100px] h-auto object-contain"
-          />
-        </Button>
-        <h1 className="text-2xl font-bold">午间休息</h1>
-        {/* Sound Control */}
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleBGM} 
-            className="w-[100px] h-auto p-0 bg-transparent border-0 hover:bg-transparent hover:scale-110 transition-all duration-300"
-          >
-            <img 
-              src="/images/vinyl.png" 
-              alt="Sound Control" 
-              className={`w-[100px] h-auto object-contain transition-transform duration-300 ${
-                isPlaying ? 'animate-slow-spin' : ''
-              }`}
-            />
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Timer Area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
-        {/* Timer Icon */}
-        <div className="w-32 h-32 flex items-center justify-center mb-8">
-          <img 
-            src="/images/break.png" 
-            alt="午间休息计时器" 
-            className="w-32 h-32 object-contain"
-          />
-        </div>
-
-        {/* Motivational Text */}
-        <h2 className="text-2xl font-bold mb-8 text-center">放松身心，享受片刻宁静</h2>
-
-        {/* Timer Display */}
-        <div className="text-6xl font-mono font-bold mb-12">
-          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}:00
-        </div>
-
-        {/* Start Button */}
-        <Button
-          onClick={isRunning ? completeBreak : startTimer}
-          className="bg-gradient-to-br from-white to-gray-200 text-purple-900 hover:from-gray-100 hover:to-gray-300 px-12 py-4 rounded-2xl text-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-300"
-          style={{
-            clipPath: "polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%)",
-          }}
-        >
-          {isRunning ? "完成" : "开始"}
-        </Button>
-      </div>
-
-      {/* Completed Breaks */}
-      <div className="flex justify-center gap-4 pb-8">
-        {[...Array(3)].map((_, i) => (
-          <div
-            key={i}
-            className="w-12 h-12 flex items-center justify-center"
-          >
-            <img 
-              src="/images/break.png" 
-              alt="完成的休息" 
-              className={`w-12 h-12 object-contain transition-opacity duration-300 ${
-                i < completedBreaks ? "opacity-100" : "opacity-30"
-              }`}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export default function HomePage() {
   return <ClientOnlyContent />
