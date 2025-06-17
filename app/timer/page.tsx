@@ -19,6 +19,11 @@ export default function TimerPage() {
   // 音乐播放状态
   const [isPlaying, setIsPlaying] = useState(false)
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
+  
+  // 任务编辑状态
+  const [taskTitle, setTaskTitle] = useState("每天早起干活一小时")
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingTitle, setEditingTitle] = useState("")
 
   // 格式化时间显示为 MM:SS 格式
   const formatTimeDisplay = useCallback(() => {
@@ -114,6 +119,32 @@ export default function TimerPage() {
     }
   }, [audio])
 
+  // 任务编辑功能
+  const openEditModal = () => {
+    setEditingTitle(taskTitle)
+    setShowEditModal(true)
+  }
+
+  const closeEditModal = () => {
+    setShowEditModal(false)
+    setEditingTitle("")
+  }
+
+  const saveTaskTitle = () => {
+    if (editingTitle.trim() && editingTitle.trim().length <= 15) {
+      setTaskTitle(editingTitle.trim())
+      closeEditModal()
+    }
+  }
+
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveTaskTitle()
+    } else if (e.key === 'Escape') {
+      closeEditModal()
+    }
+  }
+
   return (
     <div
       className="min-h-screen text-white flex flex-col"
@@ -169,8 +200,20 @@ export default function TimerPage() {
           />
         </div>
 
-        {/* Motivational Text */}
-        <h2 className="text-2xl font-bold mb-8 text-center">每天早起干活一小时</h2>
+        {/* Motivational Text with Edit Button */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <h2 className="text-2xl font-bold text-center">{taskTitle}</h2>
+          <button
+            onClick={openEditModal}
+            className="p-1 hover:bg-white/10 rounded-lg transition-all duration-200 hover:scale-110"
+          >
+            <img 
+              src="/images/button-edit.svg" 
+              alt="编辑任务" 
+              className="w-5 h-5 opacity-70 hover:opacity-100 transition-opacity duration-200"
+            />
+          </button>
+        </div>
 
         {/* Timer Display - 完全相同的样式 */}
         <div className="text-6xl font-mono font-bold mb-12">
@@ -217,6 +260,46 @@ export default function TimerPage() {
           </div>
         ))}
       </div>
+
+      {/* 任务编辑弹窗 */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={closeEditModal}>
+          <div 
+            className="bg-white rounded-xl p-6 w-[400px] max-w-[90vw] shadow-2xl" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">编辑任务</h3>
+            <input
+              type="text"
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onKeyDown={handleEditKeyPress}
+              placeholder="输入任务内容（最多15字）"
+              maxLength={15}
+              autoFocus
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center"
+            />
+            <div className="text-right text-sm text-gray-500 mt-2">
+              {editingTitle.length}/15
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={closeEditModal}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveTaskTitle}
+                disabled={!editingTitle.trim() || editingTitle.trim().length > 15}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
