@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
@@ -23,12 +23,100 @@ export default function BreakPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingTitle, setEditingTitle] = useState("")
 
+  // 飘散文字动画状态
+  const floatingText = "将一个想法带入现实，它可能看起来变小了似的，从无形到有形。"
+  const [textCharacters, setTextCharacters] = useState<Array<{
+    char: string
+    id: number
+    initialX: number
+    initialY: number
+    targetX: number
+    targetY: number
+  }>>([])
+  const [animationFrame, setAnimationFrame] = useState(0)
+
+  // 漂浮动画循环
+  useEffect(() => {
+    if (!isRunning) return
+    
+    const animate = () => {
+      setAnimationFrame(prev => prev + 1)
+      if (isRunning) {
+        requestAnimationFrame(animate)
+      }
+    }
+    
+    const id = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(id)
+  }, [isRunning])
+
+    // 初始化文字字符位置
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    const centerX = window.innerWidth / 2
+    // 新策略：基于header下方40px的固定定位，避免折行导致的重叠问题
+    const centerY = 100 + 40 // header高度估算(100px) + 40px间距
+    
+    // 定义安全显示区域，避开UI元素
+    const safeZones = [
+      // 左上角区域 (避开logo)
+      { x: 0, y: 0, width: window.innerWidth * 0.25, height: window.innerHeight * 0.3 },
+      // 右上角区域 (避开音乐控制)
+      { x: window.innerWidth * 0.75, y: 0, width: window.innerWidth * 0.25, height: window.innerHeight * 0.3 },
+      // 左下角区域
+      { x: 0, y: window.innerHeight * 0.7, width: window.innerWidth * 0.3, height: window.innerHeight * 0.3 },
+      // 右下角区域
+      { x: window.innerWidth * 0.7, y: window.innerHeight * 0.7, width: window.innerWidth * 0.3, height: window.innerHeight * 0.3 }
+    ]
+    
+    const getRandomSafePosition = () => {
+      const zone = safeZones[Math.floor(Math.random() * safeZones.length)]
+      return {
+        x: zone.x + Math.random() * zone.width,
+        y: zone.y + Math.random() * zone.height
+      }
+    }
+    
+    const chars = floatingText.split('').map((char, index) => {
+      // 计算最终文字的布局位置（在break.png上方）
+      const charsPerLine = 18 // 每行大约18个字符
+      const lineIndex = Math.floor(index / charsPerLine)
+      const charInLine = index % charsPerLine
+      
+      const targetX = centerX - (charsPerLine * 12) / 2 + charInLine * 12 // 字符间距12px
+      const targetY = centerY + lineIndex * 30 // 行间距30px
+      
+      const safePos = getRandomSafePosition()
+      
+      return {
+        char,
+        id: index,
+        initialX: safePos.x,
+        initialY: safePos.y,
+        targetX: targetX,
+        targetY: targetY
+      }
+    })
+    setTextCharacters(chars)
+  }, [])
+
   // 格式化时间显示为 MM:SS 格式
   const formatTimeDisplay = useCallback(() => {
     const minutes = Math.floor(timeLeft / 60)
     const seconds = timeLeft % 60
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
   }, [timeLeft])
+
+  // 完成状态
+  const [isCompleted, setIsCompleted] = useState(false)
+
+  // 计算文字汇聚进度（0-1）
+  const gatheringProgress = useMemo(() => {
+    if (isCompleted) return 1 // 点击完成按钮后立即汇聚
+    if (!isRunning && timeLeft === DEFAULT_TIME) return 0 // 未开始
+    return Math.min((DEFAULT_TIME - timeLeft) / DEFAULT_TIME, 1) // 0到1的进度
+  }, [timeLeft, isRunning, isCompleted])
 
   // 计时器逻辑
   useEffect(() => {
@@ -59,6 +147,7 @@ export default function BreakPage() {
   const startTimer = () => {
     setIsRunning(true)
     setIsPaused(false)
+    setIsCompleted(false) // 重置完成状态，让文字重新散开
   }
 
   // 暂停计时
@@ -75,10 +164,12 @@ export default function BreakPage() {
 
   // 完成休息
   const completeBreak = () => {
+    setIsCompleted(true) // 立即触发汇聚完成，保持不变
     setCompletedBreaks(completedBreaks + 1)
     setTimeLeft(DEFAULT_TIME)
     setIsRunning(false)
     setIsPaused(false)
+    // 移除自动重置，保持汇聚状态
   }
 
   // 返回主页
@@ -142,6 +233,15 @@ export default function BreakPage() {
     }
   }
 
+  // 计算图标透明度（基于进度和完成状态）
+  const iconOpacity = useMemo(() => {
+    if (isCompleted) return 1 // 完成时100%
+    if (!isRunning && timeLeft === DEFAULT_TIME) return 0.3 // 未开始时30%
+    // 计时进行中：从30%到100%线性变化
+    const progress = (DEFAULT_TIME - timeLeft) / DEFAULT_TIME
+    return 0.3 + (progress * 0.7) // 30% + 70% * progress
+  }, [timeLeft, isRunning, isCompleted, DEFAULT_TIME])
+
   return (
     <div
       className="min-h-screen text-white flex flex-col"
@@ -193,7 +293,10 @@ export default function BreakPage() {
           <img 
             src="/images/break.png" 
             alt="午间休息计时器" 
-            className="w-32 h-32 object-contain"
+            className={`w-32 h-32 object-contain transition-opacity duration-300 ${
+              iconOpacity < 1 ? 'opacity-30' : ''
+            }`}
+            style={{ opacity: iconOpacity }}
           />
         </div>
 
@@ -257,6 +360,73 @@ export default function BreakPage() {
           </div>
         ))}
       </div>
+
+      {/* 飘散文字动画区域 - 只在汇聚未完成时显示 */}
+      {gatheringProgress < 0.95 && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-10">
+          {textCharacters.map((charData) => {
+            // 计算当前字符的位置（基于汇聚进度）
+            const currentX = charData.initialX + (charData.targetX - charData.initialX) * gatheringProgress
+            const currentY = charData.initialY + (charData.targetY - charData.initialY) * gatheringProgress
+            
+            // 添加轻微的漂浮偏移（在计时器运行时），确保不会漂浮到UI元素区域
+            let floatOffsetX = isRunning ? Math.sin(animationFrame * 0.01 + charData.id) * 2 : 0
+            let floatOffsetY = isRunning ? Math.cos(animationFrame * 0.008 + charData.id) * 1.5 : 0
+            
+            // 边界检查，防止漂浮到UI元素区域
+            const finalX = currentX + floatOffsetX
+            const finalY = currentY + floatOffsetY
+            
+            // 避开中心UI区域 (图标、标题、计时器、按钮区域)
+            if (typeof window !== 'undefined') {
+              const centerUIZone = {
+                left: window.innerWidth * 0.2,
+                right: window.innerWidth * 0.8,
+                top: window.innerHeight * 0.25,
+                bottom: window.innerHeight * 0.75
+              }
+              
+              if (finalX > centerUIZone.left && finalX < centerUIZone.right && 
+                  finalY > centerUIZone.top && finalY < centerUIZone.bottom) {
+                floatOffsetX *= 0.3 // 减小漂浮幅度
+                floatOffsetY *= 0.3
+              }
+            }
+            
+            // 动态颜色和透明度：使用#FCA079橙色系
+            let color = 'rgba(252, 160, 121, 0.3)' // 默认30%透明度
+            if (gatheringProgress === 0) color = 'rgba(252, 160, 121, 0.3)' // 未开始时30%
+            else if (isRunning && gatheringProgress < 0.9) color = 'rgba(252, 160, 121, 0.3)' // 运行时30%
+            else if (gatheringProgress > 0.8) color = 'rgba(252, 160, 121, 0.6)' // 接近完成时60%
+            
+            return (
+              <div
+                key={charData.id}
+                className="absolute text-lg transition-all duration-500 ease-out"
+                style={{
+                  transform: `translate(${currentX + floatOffsetX}px, ${currentY + floatOffsetY}px)`,
+                  color: color,
+                  transition: 'transform 1s ease-out, color 0.5s ease-out'
+                }}
+              >
+                {charData.char}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 汇聚完成后的最终文字显示区域 */}
+      {gatheringProgress >= 0.95 && (
+        <div 
+          className="fixed left-1/2 transform -translate-x-1/2 pointer-events-none z-20"
+          style={{ top: `140px` }}
+        >
+          <div className="text-xl font-medium text-center leading-relaxed max-w-2xl px-8" style={{ color: 'rgba(252, 160, 121, 0.6)' }}>
+            {floatingText}
+          </div>
+        </div>
+      )}
 
       {/* 任务编辑弹窗 */}
       {showEditModal && (
