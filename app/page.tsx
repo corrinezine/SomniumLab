@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Play, Pause, Volume2, VolumeX } from "lucide-react"
 import { callGuideChat, callMultiGuideChat, ChatMessage, APIError, MultiGuideResponse } from "@/lib/api"
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 
 // 动态导入组件以避免SSR问题
 const ClientOnlyContent = dynamic(() => Promise.resolve(MainContent), {
@@ -19,6 +20,7 @@ const QRScannerComponent = dynamic(() => import('@/components/qr-scanner'), {
 })
 
 function MainContent() {
+  const router = useRouter()
   const [currentView, setCurrentView] = useState<"home" | "guide" | "work" | "break">("home")
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -279,7 +281,7 @@ function MainContent() {
           {/* Deep Work */}
           <div className="flex flex-col items-center gap-4">
             <Button
-              onClick={() => setCurrentView("work")}
+              onClick={() => router.push('/timer')}
               className="p-0 bg-transparent border-0 hover:bg-transparent shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center"
             >
               <img 
@@ -966,6 +968,7 @@ function DeepWork({
   completedPomodoros: number
   setCompletedPomodoros: (count: number) => void
 }) {
+  const router = useRouter()
   const [minutes, setMinutes] = useState(60)
   const [seconds, setSeconds] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
@@ -1047,13 +1050,13 @@ function DeepWork({
 
         {/* Start Button */}
         <Button
-          onClick={isRunning ? completePomodoro : startTimer}
+          onClick={() => router.push('/timer')}
           className="bg-gradient-to-br from-white to-gray-200 text-purple-900 hover:from-gray-100 hover:to-gray-300 px-12 py-4 rounded-2xl text-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-300"
           style={{
             clipPath: "polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%)",
           }}
         >
-          {isRunning ? "完成" : "开始"}
+          开始
         </Button>
       </div>
 

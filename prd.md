@@ -54,6 +54,7 @@ Aura（灵韵）具有不可复制的启发性，让人感受到独特的情感�
 - GuideRoundtable组件的chat逻辑
 
 ##启动方式
+本地运行 cd /Users/zhaoke/aura-studio && npm run dev
 ./start_local.sh
 
 /**备忘：cd frontend && npm install npm install npm run dev **/
