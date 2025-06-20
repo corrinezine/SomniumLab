@@ -15,29 +15,35 @@ Aura（灵韵）具有不可复制的启发性，让人感受到独特的情感�
 
 ## 四、核心功能模块
 
-### 1. 向导系统（多角色对话模块）
-- 主界面展示3个功能入口（深度工作、午间休息、向导圆桌）。
-- 主页用户点击"向导圆桌"进入对话空间，与该向导以聊天方式交互。
-- 聊天窗口以"类微信风格"展示消息气泡，支持：
-  - 预设欢迎语
-  - 用户文本输入
-  - 系统伪AI回复（后端伪逻辑实现，后续接入openapi接口实现）
-  - "正在思考中…" 动画模拟
-- 每次访问记录并更新访问次数。
-- 每个向导对应不同主题与对白内容。
-- 后续支持以多个角色的身份一起聊天。
+1. 计时器
+- 主界面展示3个功能入口（聚焦、播种、放牧），用户点击入口分别进入对应计时器页面，每个计时器场景不同，默认播放的音乐不同。在计时器页面，可以通过下拉菜单方便导航到其他计时器。
+- 计时逻辑：计时器可选择正计时或倒计时，默认倒计时（聚焦90分钟、放牧30分钟、篝火60分钟），点击右侧按钮切换为正计时，从00:00开始）
+- 右上角音乐每个计时器不同，默认不播放，支持播放/暂停
+
+- 计时中：计时显示格式MM:SS，倒计时和正计时逻辑正确
+- 计时后：任务计时结束无强提醒，计时结束或手动点击完成按钮，则完成一次。每当用户完成一次计时后，出现一句话或指令。
+
+2.灵感向导和创作妙妙屋（原来的“篝火”子页面）
+- 计时器页面中，点击向导（guide）“来个灵感”弹出灵感锦囊弹窗，下方有两个按钮：点击“再来一个”随机切换灵感文本（文本来自几套不同的预设，自定义预设触发付费流程），点击“去妙妙屋”打开“创作妙妙屋”链接（这个链接无需登录可查看）。计时不停止，缩小到顶部栏展示。
+- 主界面和每个计时器的顶部栏右上角有“创作妙妙屋”（音乐播放器左边），点击进入一个独立页面链接，展示一个剧场般的工作室空间，有各种可以交互的物件，点击物件弹出不同的灵感卡片。“创作妙妙屋”页面有扫描二维码功能。
 
 
-### 2. 白噪音番茄钟（mvp）
-- 主页用户点击"深度工作"进入番茄钟页面
-- 页面全局运行一个90分钟定时器，搭配播放白噪音。
-- 支持播放/暂停，音轨可选，任务计时结束无强提醒，仅展示结束动画或淡入语句。
-- 全局 Timer（开始后不受页面切换影响）。
-- 白噪音可选择（如雨声、风声等）。
-- 视觉呈现简洁，可与向导状态搭配协调（如深紫夜空背景中的浮动时间圈）。
+3. 登录后记录用户时间日志
+- 用户注册登陆后，能查看自己的使用记录。每一天的记录将汇总呈现为一张卡片"日志"，进行可视化，如"今天进行了x次深度工作，共x分钟"
+- 需要记录用户使用过的定时器名称、对应的时间长度、开始和结束计时的日期时间。以便从日、周、月、年的维度进行总结和可视化。
+实现方案
+- 用户日志记录功能。点击左上角的“日志”按钮打开日志弹窗（TimerStatsModal），展示用户当前的使用次数和时长，日志记录在supabase的user_daily_logs表中。
+- 统计数据接口 api_routes.py 中的 timer-stats 端点，实现获取用户计时器统计数据。
+关键用例：
+- 测试完整的计时器功能流程，确保数据能正确记录到 Supabase 并在前端更新。使用真实的前端计时器功能来测试/手动创建模拟数据。
 
-###扫描二维码翻卡
-用户扫描二维码后，直接打开对应的弹窗卡牌、再回到主页。因此4个卡牌对应4个二维码
+4. 付费功能：时间画卷
+- 用户进入日志，如要解锁日志画卷，则进入付费流程。
+
+
+
+###
+
 
 ## 五、技术栈说明
 - 前端：Next.js（React）
@@ -45,41 +51,196 @@ Aura（灵韵）具有不可复制的启发性，让人感受到独特的情感�
 - 数据库：Supabase
 - 其他：HTML5 Audio、CSS 动画、响应式设计 
 
-##🚀 启动前后端联调的步骤
-第一步：启动后端服务
-- cd backend && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-第二步：启动前端服务
-- npm run dev
+---
 
-- GuideRoundtable组件的chat逻辑
 
-##启动方式
-本地运行 cd /Users/zhaoke/aura-studio && npm run dev
-./start_local.sh
 
-/**备忘：cd frontend && npm install npm install npm run dev **/
-前台启动服务 python main.py
-/api/openai/chat
-echo "# aura-studio" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git branch -M main
-git remote add origin https://github.com/KorrineZone/aura-studio.git
-git push -u origin main
 
-git remote -v
-git push -u origin main
+## 六、系统调整和优化记录
 
-移除git remote remove origin
-启动后端
-cd backend && ls -la
-cat .env
+### 🔧 2025年6月20日 - Supabase 连接修复与系统联调
 
-🚀 启动 AURA STUDIO 本地开发环境...
-📦 检查前端依赖...
-📦 安装前端依赖...  ← 安装过程
-📦 创建Python虚拟环境...  ← 创建过程
-📦 安装后端依赖...  ← 安装过程
-✅ 前端服务已启动
-✅ 后端服务已启动
+#### **问题诊断与解决**
+
+**1. Supabase 连接失败问题**
+- **问题现象**: DNS 解析失败 `NXDOMAIN`，SSL 连接错误
+- **根本原因**: 项目 URL 配置错误（字符转置：`jdyogiyzmzwdtmcgxdas` → `jdyogivzmzwdtmcgxdas`）
+- **解决方案**: 
+  - 创建 `supabase_diagnosis.py` 诊断工具进行全面检测
+  - 开发 `update_supabase_config.py` 配置更新向导
+  - 验证项目状态并更新正确的 URL 和 API Key
+
+**2. 依赖包管理优化**
+- **问题**: 缺失 `volcenginesdkarkruntime` 依赖
+- **解决**: 安装正确的 `volcengine-python-sdk` 包
+- **影响**: 火山引擎 AI 模型集成功能正常
+
+#### **系统架构完善**
+
+**1. 后端服务优化**
+- ✅ Supabase 集成模块完全正常（5/5 测试通过）
+- ✅ 用户管理：创建、登录、验证功能
+- ✅ 计时器会话：开始、结束、查询功能  
+- ✅ 每日日志：生成、统计功能
+- ✅ 配置数据：3种计时器类型，3个音轨
+
+**2. API 服务状态**
+- ✅ 健康检查端点：`GET /api/health`
+- ✅ 聊天功能：`POST /api/openai/chat`
+- ✅ 向导系统：支持 8 种向导类型
+- ✅ CORS 配置：支持前后端跨域通信
+
+**3. 前端服务**
+- ✅ Next.js 开发服务器启动正常
+- ✅ 响应式设计和组件渲染
+- ✅ 与后端 API 连接测试通过
+
+#### **数据库设计验证**
+
+**已验证的数据表结构**：
+- `users` - 用户管理
+- `timer_types` - 计时器类型配置
+- `audio_tracks` - 音轨管理
+- `timer_sessions` - 计时器会话记录
+- `user_daily_logs` - 用户每日统计
+
+#### **开发环境配置**
+
+**启动命令确认**：
+```bash
+# 后端服务
+cd backend && python main.py
+
+# 前端服务  
+npm run dev
+
+# 健康检查
+curl http://localhost:8000/api/health
+curl http://localhost:3000/
+```
+
+**服务状态**：
+- 🟢 后端服务：`http://localhost:8000` 
+- 🟢 前端服务：`http://localhost:3000`
+- 🟢 API 文档：`http://localhost:8000/docs`
+
+- 测试页面 http://localhost:3000/debug-auth
+
+
+
+### 📊 当前系统状态总览
+
+| 组件 | 状态 | 端口 | 备注 |
+|------|------|------|------|
+| 前端服务 | 🟢 运行中 | 3000 | Next.js + React |
+| 后端服务 | 🟢 运行中 | 8000 | FastAPI + Python |  
+| 数据库 | 🟢 连接正常 | - | Supabase PostgreSQL |
+| AI 服务 | 🟡 部分配置 | - | 火山引擎 SDK 已安装 |
+
+
+---
+
+### 七、前后端数据库联调成功总结
+
+经过深度的前后端数据库联调，AURA STUDIO 项目已成功实现：
+
+**✅ 核心功能验证**：
+- Supabase 用户认证系统完全正常
+- 用户数据自动同步机制建立
+- 计时器会话记录功能正常
+- 用户日志记录和统计功能完成
+- 前后端数据实时同步
+
+**✅ 数据库架构稳定**：
+- 所有表结构设计合理并已验证
+- 外键约束完整性保证
+- 用户认证与自定义用户表同步机制
+- 支持 upsert 操作避免数据重复
+
+🔍 关键问题与解决方案
+
+#### 1. Supabase 项目 URL 配置错误
+**问题**: DNS 解析失败，连接错误
+**原因**: URL 字符转置（`jdyogiyzmzwdtmcgxdas` vs `jdyogivzmzwdtmcgxdas`）
+**解决**: 建立配置验证机制，使用网络诊断工具
+
+#### 2. API Key 格式破坏
+**问题**: JWT token 无效，认证失败
+**原因**: 环境变量文件中 API Key 被意外换行
+**解决**: 重新创建环境变量文件，确保单行格式
+
+#### 3. Supabase Auth 与自定义用户表不同步
+**问题**: 用户注册成功但外键约束失败
+**原因**: `auth.users` 与 `public.users` 缺少同步机制
+**解决**: 实现前端同步 + 数据库触发器双重保障
+
+#### 4. 环境变量管理混乱
+**问题**: 多个重复配置文件导致配置不一致
+**解决**: 统一文件结构（前端 `.env.local`，后端 `backend/.env`）
+
+### 🛠️ 建立的技术解决方案
+
+#### 调试工具体系
+1. **前端调试页面** (`/debug-auth`): 实时功能测试和状态监控
+2. **后端检查脚本**: 数据库完整性验证和状态检查
+3. **网络诊断工具**: DNS、HTTP 连接验证
+4. **数据同步机制**: 用户认证与数据表自动同步
+
+
+### 📚 最佳实践总结
+
+#### 开发流程优化
+1. **分层验证策略**: 连接 → 认证 → 数据操作
+2. **系统性问题排查**: 从配置到网络到数据库逐层检查
+3. **完善的错误处理**: 详细日志记录和错误追踪
+4. **数据完整性保证**: 外键关系验证和同步机制
+代码结构模块精准无冗余，去除不必要的部分
+
+#### 避免的关键陷阱
+- ❌ 忽视配置文件的细节错误（字符转置、换行等）
+- ❌ 假设 Supabase Auth 会自动同步到自定义表
+- ❌ 缺少数据完整性验证和外键检查
+- ❌ 环境变量文件管理混乱
+
+---
+
+### 📈 测试数据验证
+
+**实际测试结果**:
+- 用户表记录: 16 个用户
+- 日志记录: 9 条用户日志
+- 计时器会话: 14 条会话记录
+- 数据完整性: 100% 外键引用有效
+
+附录：常用指令
+
+✅ 前端服务状态
+Next.js 服务: 正常运行在 http://localhost:3000
+调试页面: /debug-auth 完全正常，可进行实时功能测试
+环境变量: 正确配置，使用 .env.local 文件
+页面响应: 正常加载，HTML 结构完整
+启动前端：
+npm run dev
+sleep 5 && curl -s http://localhost:3000/ | head -5
+curl -s http://localhost:3000/debug-auth | head -20
+curl -s http://localhost:8000/api/health
+
+✅ 后端服务状态
+FastAPI 服务: 正常运行在 http://localhost:8000
+健康检查: API 响应正常，服务版本 1.0.0
+向导系统: 8 种向导类型可用
+模型配置: deepseek-r1-distill-qwen-32b-250120
+启动后端服务：
+cd backend && python main_supabase.py
+& sleep 3 && curl -s http://localhost:8000/api/health
+ps aux | grep python | grep -v grep
+检查是否启动 ps aux | grep "python main_supabase" | grep -v grep
+cd backend && python -m uvicorn main_integrated:app --host 0.0.0.0 --port 8000 --reload
+sleep 3 && python test_timer_stats_api.py
+查找端口：lsof -i :8000
+kill -9 63371
+
+✅检查数据库
+cd /Users/zhaoke/aura-studio && python backend/check_users_and_logs.py
+python backend/check_table_structure.py
+python backend/test_supabase_integration.py

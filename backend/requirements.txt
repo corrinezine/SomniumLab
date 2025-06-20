@@ -4,4 +4,14 @@ volcengine-python-sdk
 python-dotenv==1.0.0
 pydantic==2.5.0
 httpx==0.25.2
-python-multipart==0.0.6 
+python-multipart==0.0.6
+# 数据库相关依赖
+asyncpg==0.29.0
+bcrypt==4.1.2
+email-validator==2.1.0
+# Supabase 集成（实际安装的版本）
+supabase>=2.3.0
+postgrest>=0.13.2
+# JWT 认证相关
+PyJWT>=2.8.0
+cryptography>=41.0.0 

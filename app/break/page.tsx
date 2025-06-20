@@ -3,9 +3,19 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { useAuth } from '@/components/auth/AuthProvider'
+
+interface TimerSession {
+  session_id: string  // 修正：API返回的是session_id，且是字符串
+  timer_type_id: number
+  planned_duration: number
+  elapsed_time?: number
+  started_at: string
+}
 
 export default function BreakPage() {
   const router = useRouter()
+  const { user } = useAuth()
   
   // 计时器状态 - 90分钟倒计时
   const DEFAULT_TIME = 90 * 60 // 90分钟转换为秒
@@ -13,9 +23,13 @@ export default function BreakPage() {
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [completedBreaks, setCompletedBreaks] = useState(0)
+  
+  // 计时器会话状态
+  const [currentSession, setCurrentSession] = useState<TimerSession | null>(null)
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
 
   // 音乐播放状态
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true) // 改为默认播放状态
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
   
   // 任务编辑状态
@@ -35,7 +49,7 @@ export default function BreakPage() {
   }>>([])
   const [animationFrame, setAnimationFrame] = useState(0)
 
-  // 漂浮动画循环
+  // 漂浮动画循环 - 只在计时器运行时
   useEffect(() => {
     if (!isRunning) return
     
@@ -49,6 +63,31 @@ export default function BreakPage() {
     const id = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(id)
   }, [isRunning])
+
+  // 初始化音频
+  useEffect(() => {
+    const audioElement = new Audio('/Miles Davis - Générique.mp3')
+    audioElement.loop = true
+    audioElement.volume = 0.3 // 设置音量为30%
+    setAudio(audioElement)
+
+    // 进入页面时自动播放音乐
+    const playAudio = async () => {
+      try {
+        await audioElement.play()
+        setIsPlaying(true)
+      } catch (error) {
+        console.log('自动播放被浏览器阻止，需要用户交互后播放:', error)
+        setIsPlaying(false)
+      }
+    }
+    playAudio()
+
+    return () => {
+      audioElement.pause()
+      audioElement.src = ''
+    }
+  }, [])
 
     // 初始化文字字符位置
   useEffect(() => {
@@ -110,13 +149,27 @@ export default function BreakPage() {
 
   // 完成状态
   const [isCompleted, setIsCompleted] = useState(false)
+  
+  // 完成动画状态
+  const [isCompletionAnimating, setIsCompletionAnimating] = useState(false)
 
   // 计算文字汇聚进度（0-1）
   const gatheringProgress = useMemo(() => {
-    if (isCompleted) return 1 // 点击完成按钮后立即汇聚
+    if (isCompleted) return 1 // 完成后保持汇聚状态
+    if (isCompletionAnimating) return 1 // 完成动画时立即汇聚
     if (!isRunning && timeLeft === DEFAULT_TIME) return 0 // 未开始
     return Math.min((DEFAULT_TIME - timeLeft) / DEFAULT_TIME, 1) // 0到1的进度
-  }, [timeLeft, isRunning, isCompleted])
+  }, [timeLeft, isRunning, isCompleted, isCompletionAnimating])
+
+  // 优雅的缓动函数 - 为汇聚动画添加更自然的过渡
+  const easeInOutCubic = (t: number) => {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+  }
+
+  // 应用缓动函数的汇聚进度
+  const smoothGatheringProgress = useMemo(() => {
+    return easeInOutCubic(gatheringProgress)
+  }, [gatheringProgress])
 
   // 计时器逻辑
   useEffect(() => {
@@ -143,11 +196,82 @@ export default function BreakPage() {
     }
   }, [isRunning, timeLeft])
 
+  // 开始计时器会话
+  const startTimerSession = async () => {
+    try {
+      // 使用当前登录用户ID，如果未登录则使用测试用户ID
+      const userId = user?.id || "78888489-6410-4888-aceb-b2ed98fc45f8" // 备用测试用户
+      
+      const response = await fetch(`http://localhost:8000/api/timer/start?user_id=${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          timer_type_id: 2, // inspire类型的ID
+          planned_duration: Math.round(timeLeft) // 计划时长（秒）
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('✅ 放牧会话开始:', result)
+        // 将API返回的数据转换为TimerSession格式
+        const sessionData: TimerSession = {
+          session_id: result.data.session_id,
+          timer_type_id: result.data.timer_type_id,
+          planned_duration: result.data.planned_duration,
+          started_at: result.data.started_at
+        }
+        setCurrentSession(sessionData)
+        setSessionStartTime(new Date())
+      } else {
+        console.error('❌ 开始放牧会话失败:', response.status)
+      }
+    } catch (error) {
+      console.error('❌ 开始放牧会话错误:', error)
+    }
+  }
+
+  // 完成计时器会话
+  const completeTimerSession = async () => {
+    if (!currentSession || !sessionStartTime) return
+    
+    try {
+      // 使用当前登录用户ID，如果未登录则使用测试用户ID
+      const userId = user?.id || "78888489-6410-4888-aceb-b2ed98fc45f8" // 备用测试用户
+      const actualDuration = Math.round((Date.now() - sessionStartTime.getTime()) / 1000)
+      
+      const response = await fetch(`http://localhost:8000/api/timer/complete?user_id=${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: currentSession.session_id || currentSession,
+          actual_duration: actualDuration
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('✅ 放牧会话完成:', result)
+        setCurrentSession(null)
+        setSessionStartTime(null)
+      } else {
+        console.error('❌ 完成放牧会话失败:', response.status)
+      }
+    } catch (error) {
+      console.error('❌ 完成放牧会话错误:', error)
+    }
+  }
+
   // 开始计时
   const startTimer = () => {
     setIsRunning(true)
     setIsPaused(false)
     setIsCompleted(false) // 重置完成状态，让文字重新散开
+    startTimerSession() // 启动后端会话
   }
 
   // 暂停计时
@@ -164,11 +288,20 @@ export default function BreakPage() {
 
   // 完成休息
   const completeBreak = () => {
-    setIsCompleted(true) // 立即触发汇聚完成，保持不变
-    setCompletedBreaks(completedBreaks + 1)
-    setTimeLeft(DEFAULT_TIME)
-    setIsRunning(false)
-    setIsPaused(false)
+    setIsCompletionAnimating(true) // 开始优雅的完成动画
+    
+    // 完成后端会话
+    completeTimerSession()
+    
+    // 延迟设置完成状态，创造流畅的动画效果
+    setTimeout(() => {
+      setIsCompleted(true) // 立即触发汇聚完成，保持不变
+      setCompletedBreaks(completedBreaks + 1)
+      setTimeLeft(DEFAULT_TIME)
+      setIsRunning(false)
+      setIsPaused(false)
+      setIsCompletionAnimating(false)
+    }, 800) // 800ms的优雅过渡时间
     // 移除自动重置，保持汇聚状态
   }
 
@@ -241,6 +374,31 @@ export default function BreakPage() {
     const progress = (DEFAULT_TIME - timeLeft) / DEFAULT_TIME
     return 0.3 + (progress * 0.7) // 30% + 70% * progress
   }, [timeLeft, isRunning, isCompleted, DEFAULT_TIME])
+
+  // 初始化音频
+  useEffect(() => {
+    const audioElement = new Audio('/Miles Davis - Générique.mp3')
+    audioElement.loop = true
+    audioElement.volume = 0.3 // 设置音量为30%
+    setAudio(audioElement)
+
+    // 进入页面时自动播放音乐
+    const playAudio = async () => {
+      try {
+        await audioElement.play()
+        setIsPlaying(true)
+      } catch (error) {
+        console.log('自动播放被浏览器阻止，需要用户交互后播放:', error)
+        setIsPlaying(false)
+      }
+    }
+    playAudio()
+
+    return () => {
+      audioElement.pause()
+      audioElement.src = ''
+    }
+  }, [])
 
   return (
     <div
@@ -362,16 +520,16 @@ export default function BreakPage() {
       </div>
 
       {/* 飘散文字动画区域 - 只在汇聚未完成时显示 */}
-      {gatheringProgress < 0.95 && (
+      {smoothGatheringProgress < 0.95 && (
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-10">
           {textCharacters.map((charData) => {
             // 计算当前字符的位置（基于汇聚进度）
-            const currentX = charData.initialX + (charData.targetX - charData.initialX) * gatheringProgress
-            const currentY = charData.initialY + (charData.targetY - charData.initialY) * gatheringProgress
+            const currentX = charData.initialX + (charData.targetX - charData.initialX) * smoothGatheringProgress
+            const currentY = charData.initialY + (charData.targetY - charData.initialY) * smoothGatheringProgress
             
-            // 添加轻微的漂浮偏移（在计时器运行时），确保不会漂浮到UI元素区域
-            let floatOffsetX = isRunning ? Math.sin(animationFrame * 0.01 + charData.id) * 2 : 0
-            let floatOffsetY = isRunning ? Math.cos(animationFrame * 0.008 + charData.id) * 1.5 : 0
+            // 添加轻微的漂浮偏移（在计时器运行时），增加移动幅度
+            let floatOffsetX = isRunning ? Math.sin(animationFrame * 0.01 + charData.id) * 4 : 0 // 增加到4px
+            let floatOffsetY = isRunning ? Math.cos(animationFrame * 0.008 + charData.id) * 3 : 0 // 增加到3px
             
             // 边界检查，防止漂浮到UI元素区域
             const finalX = currentX + floatOffsetX
@@ -395,18 +553,22 @@ export default function BreakPage() {
             
             // 动态颜色和透明度：使用#FCA079橙色系
             let color = 'rgba(252, 160, 121, 0.3)' // 默认30%透明度
-            if (gatheringProgress === 0) color = 'rgba(252, 160, 121, 0.3)' // 未开始时30%
-            else if (isRunning && gatheringProgress < 0.9) color = 'rgba(252, 160, 121, 0.3)' // 运行时30%
-            else if (gatheringProgress > 0.8) color = 'rgba(252, 160, 121, 0.6)' // 接近完成时60%
+            if (smoothGatheringProgress === 0) color = 'rgba(252, 160, 121, 0.3)' // 未开始时30%
+            else if (isRunning && smoothGatheringProgress < 0.9) color = 'rgba(252, 160, 121, 0.3)' // 运行时30%
+            else if (smoothGatheringProgress > 0.8) color = 'rgba(252, 160, 121, 0.6)' // 接近完成时60%
             
             return (
               <div
                 key={charData.id}
-                className="absolute text-lg transition-all duration-500 ease-out"
+                className="absolute text-base font-normal tracking-wider select-none pointer-events-none"
                 style={{
-                  transform: `translate(${currentX + floatOffsetX}px, ${currentY + floatOffsetY}px)`,
+                  left: `${currentX + floatOffsetX}px`,
+                  top: `${currentY + floatOffsetY}px`,
                   color: color,
-                  transition: 'transform 1s ease-out, color 0.5s ease-out'
+                  fontFamily: '江西拙楷, serif',
+                  transform: 'translate(-50%, -50%)',
+                  transition: isCompletionAnimating ? 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'color 0.3s ease',
+                  zIndex: 15
                 }}
               >
                 {charData.char}
@@ -417,12 +579,21 @@ export default function BreakPage() {
       )}
 
       {/* 汇聚完成后的最终文字显示区域 */}
-      {gatheringProgress >= 0.95 && (
+      {smoothGatheringProgress >= 0.95 && (
         <div 
-          className="fixed left-1/2 transform -translate-x-1/2 pointer-events-none z-20"
-          style={{ top: `140px` }}
+          className="fixed left-1/2 transform -translate-x-1/2 pointer-events-none z-20 animate-fade-in"
+          style={{ 
+            top: `140px`,
+            animation: 'fadeIn 1s ease-out forwards'
+          }}
         >
-          <div className="text-xl font-medium text-center leading-relaxed max-w-2xl px-8" style={{ color: 'rgba(252, 160, 121, 0.6)' }}>
+          <div 
+            className="text-xl font-medium text-center leading-relaxed max-w-2xl px-8" 
+            style={{ 
+              color: 'rgba(252, 160, 121, 0.6)',
+              fontFamily: '江西拙楷, serif'
+            }}
+          >
             {floatingText}
           </div>
         </div>

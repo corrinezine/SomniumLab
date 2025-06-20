@@ -214,16 +214,24 @@ function MainContent() {
         {/* 中间区域：标题和扫一扫按钮 */}
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-2xl font-bold tracking-wider">梦境管理局</h1>
-          <Button
-            onClick={openQRScanner}
-            className={`backdrop-blur-sm border border-white/30 px-4 py-1 rounded-full text-sm transition-all duration-300 hover:scale-105 ${
-              showQRScanner 
-                ? 'bg-green-500/30 hover:bg-green-500/40 text-white animate-pulse' 
-                : 'bg-white/20 hover:bg-white/30 text-white'
-            }`}
-          >
-            {showQRScanner ? '📱 扫描中...' : '📱 扫一扫'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={openQRScanner}
+              className={`backdrop-blur-sm border border-white/30 px-4 py-1 rounded-full text-sm transition-all duration-300 hover:scale-105 ${
+                showQRScanner 
+                  ? 'bg-green-500/30 hover:bg-green-500/40 text-white animate-pulse' 
+                  : 'bg-white/20 hover:bg-white/30 text-white'
+              }`}
+            >
+              {showQRScanner ? '📱 扫描中...' : '📱 扫一扫'}
+            </Button>
+            <Button
+              onClick={() => router.push('/test-timer-logs')}
+              className="backdrop-blur-sm border border-orange-300/30 px-3 py-1 rounded-full text-xs transition-all duration-300 hover:scale-105 bg-orange-500/20 hover:bg-orange-500/30 text-orange-100"
+            >
+              🧪 测试
+            </Button>
+          </div>
         </div>
         
         {/* Sound Control */}
@@ -266,7 +274,7 @@ function MainContent() {
 
         {/* Function Buttons */}
         <div className="flex justify-center items-center gap-16 md:gap-24">
-          {/* Deep Work */}
+          {/* Focus Timer */}
           <div className="flex flex-col items-center gap-4">
             <Button
               onClick={() => router.push('/timer')}
@@ -274,17 +282,17 @@ function MainContent() {
             >
               <img 
                 src="/images/work.png" 
-                alt="剧场魔法" 
+                alt="聚焦" 
                 className="w-[100px] h-[100px] object-contain"
                 style={{ width: '100px', height: '100px', maxWidth: '100px', maxHeight: '100px' }}
               />
             </Button>
             <div className="text-center">
-              <div className="text-lg font-medium text-white">剧场魔法</div>
+              <div className="text-lg font-medium text-white">聚焦</div>
             </div>
           </div>
 
-          {/* Lunch Break */}
+          {/* Inspire Timer */}
           <div className="flex flex-col items-center gap-4">
             <Button
               onClick={() => router.push('/break')}
@@ -292,17 +300,17 @@ function MainContent() {
             >
               <img 
                 src="/images/break.png" 
-                alt="过往演出" 
+                alt="放牧" 
                 className="w-[100px] h-[100px] object-contain"
                 style={{ width: '100px', height: '100px', maxWidth: '100px', maxHeight: '100px' }}
               />
             </Button>
             <div className="text-center">
-              <div className="text-lg font-medium text-white">过往演出</div>
+              <div className="text-lg font-medium text-white">放牧</div>
             </div>
           </div>
 
-          {/* Guide Roundtable */}
+          {/* Talk Timer */}
           <div className="flex flex-col items-center gap-4">
             <Button
               onClick={() => setCurrentView("guide")}
@@ -310,13 +318,13 @@ function MainContent() {
             >
               <img 
                 src="/images/roundtable.png" 
-                alt="工作手记" 
+                alt="篝火" 
                 className="w-[100px] h-[100px] object-contain"
                 style={{ width: '100px', height: '100px', maxWidth: '100px', maxHeight: '100px' }}
               />
             </Button>
             <div className="text-center">
-              <div className="text-lg font-medium text-white">工作手记</div>
+              <div className="text-lg font-medium text-white">篝火</div>
             </div>
           </div>
         </div>

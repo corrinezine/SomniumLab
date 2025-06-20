@@ -9,6 +9,10 @@ import logging
 import httpx
 import asyncio
 
+# 导入认证相关模块
+from protected_routes import router as protected_router
+from supabase_integration import get_client
+
 # 加载环境变量
 load_dotenv()
 
@@ -32,6 +36,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 🔐 注册认证保护的路由
+# 这些路由需要 JWT Token 认证才能访问
+app.include_router(protected_router, tags=["认证保护的API"])
 
 # 配置火山引擎Ark客户端
 ark_api_key = os.getenv("API_KEY")
